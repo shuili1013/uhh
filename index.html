@@ -2,196 +2,168 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#000000">
     <link rel="manifest" href="manifest.json">
     
-    <title>Drive Launcher</title>
+    <title>Drive Debug</title>
     <style>
-        :root {
-            --bg-color: #000000;
-            --card-bg: #1c1c1e;
-            --text-color: #ffffff;
-            --home-bar: #34C759;
-            --omnie-bar: #007AFF;
-        }
-
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            margin: 0;
-            padding: 20px;
+            background-color: #000;
+            color: #fff;
+            font-family: sans-serif;
             display: flex;
             flex-direction: column;
-            justify-content: center;
             align-items: center;
-            height: 100vh;
-            overflow: hidden;
-            box-sizing: border-box;
+            padding: 20px;
         }
-
-        .container {
-            display: flex;
-            flex-direction: column;
-            gap: 25px;
+        .btn {
+            width: 100%;
+            max-width: 300px;
+            padding: 20px;
+            margin: 10px 0;
+            border-radius: 15px;
+            border: 1px solid #333;
+            background: #1c1c1e;
+            color: white;
+            font-size: 1.1rem;
+            text-align: center;
+            cursor: pointer;
+        }
+        .btn-green { border-left: 5px solid #34C759; }
+        .btn-blue { border-left: 5px solid #007AFF; }
+        .btn-red { border-left: 5px solid #FF3B30; margin-top: 30px;}
+        
+        /* 記錄檔顯示區 */
+        #console-log {
             width: 100%;
             max-width: 350px;
-        }
-
-        .big-btn {
-            background-color: var(--card-bg);
-            border-radius: 20px;
-            height: 120px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            text-decoration: none;
-            color: white;
-            position: relative;
-            overflow: hidden;
-            border: 1px solid #333;
-            -webkit-tap-highlight-color: transparent;
-            transition: transform 0.1s, background-color 0.2s;
-        }
-
-        .big-btn:active {
-            transform: scale(0.96);
-            background-color: #2c2c2e;
-        }
-
-        .big-btn::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 0;
-            bottom: 0;
-            width: 8px;
-        }
-
-        .btn-home::before { background-color: var(--home-bar); }
-        .btn-omnie::before { background-color: var(--omnie-bar); }
-
-        .text-group {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            text-align: center;
-        }
-
-        .title {
-            font-size: 1.8rem;
-            font-weight: 700;
-            letter-spacing: 1px;
-            margin-bottom: 5px;
-        }
-
-        .subtitle {
-            font-size: 0.8rem;
-            color: #888;
-            font-weight: 400;
-        }
-
-        /* 安裝按鈕樣式 (預設隱藏) */
-        #installBtn {
-            display: none; 
-            margin-top: 30px;
-            padding: 10px 20px;
-            background-color: #333;
-            color: #fff;
-            border: 1px solid #555;
-            border-radius: 20px;
-            font-size: 0.9rem;
-            cursor: pointer;
+            height: 150px;
+            background: #111;
+            border: 1px solid #444;
+            font-family: monospace;
+            font-size: 12px;
+            color: #0f0;
+            padding: 10px;
+            overflow-y: scroll;
+            margin-top: 20px;
+            white-space: pre-wrap;
         }
     </style>
 </head>
 <body>
 
-    <div class="container">
-        <div class="big-btn btn-home" onclick="goHome()">
-            <div class="text-group">
-                <span class="title">導航回家</span>
-                <span class="subtitle">Google Maps</span>
-            </div>
-        </div>
+    <h2>除錯模式</h2>
 
-        <div class="big-btn btn-omnie" onclick="openOmnie()">
-            <div class="text-group">
-                <span class="title">神盾測速</span>
-                <span class="subtitle">Omnie CUE</span>
-            </div>
-        </div>
-    </div>
+    <div class="btn btn-green" onclick="goHome()">🏠 導航回家 (Maps)</div>
 
-    <button id="installBtn">📲 安裝到主畫面</button>
+    <p style="color:#888; font-size:0.8rem;">測試神盾 (請依序嘗試):</p>
+    <div class="btn btn-blue" onclick="testOmnie(1)">🛡️ 神盾 測試 A (標準)</div>
+    <div class="btn btn-blue" onclick="testOmnie(2)">🛡️ 神盾 測試 B (暴力)</div>
+    <div class="btn btn-blue" onclick="testOmnie(3)">🛡️ 神盾 測試 C (Activity)</div>
+
+    <div id="installBtn" class="btn btn-red" style="display:none;">📲 安裝到主畫面</div>
+
+    <div id="console-log">系統日誌初始化...</div>
 
     <script>
-        // --- 1. PWA 安裝邏輯 (修正版) ---
+        // --- 日誌功能 (幫您抓出錯誤) ---
+        const logBox = document.getElementById('console-log');
+        function log(msg) {
+            const time = new Date().toLocaleTimeString();
+            logBox.innerText += `\n[${time}] ${msg}`;
+            logBox.scrollTop = logBox.scrollHeight;
+            console.log(msg);
+        }
+
+        // --- 1. PWA 安裝診斷 ---
         let deferredPrompt;
         const installBtn = document.getElementById('installBtn');
 
-        // 註冊 Service Worker
+        // 檢查 Service Worker 是否存在
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./service-worker.js')
-                    .then(reg => console.log('SW ok', reg))
-                    .catch(err => console.log('SW fail', err));
-            });
+            log("檢查 SW 支援: 是");
+            navigator.serviceWorker.register('./service-worker.js')
+                .then(reg => log("✅ SW 註冊成功! Scope: " + reg.scope))
+                .catch(err => log("❌ SW 註冊失敗: " + err.message));
+        } else {
+            log("❌ 此瀏覽器不支援 Service Worker");
         }
 
-        // 監聽安裝事件 (Chrome Android 專用)
+        // 監聽安裝事件
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             deferredPrompt = e;
+            log("✅ 捕捉到安裝事件 (beforeinstallprompt)");
             installBtn.style.display = 'block'; // 顯示按鈕
+            installBtn.innerText = "📲 按此安裝 PWA (可用)";
         });
 
         installBtn.addEventListener('click', () => {
-            installBtn.style.display = 'none';
-            deferredPrompt.prompt(); // 觸發安裝視窗
-            deferredPrompt.userChoice.then((choiceResult) => {
-                deferredPrompt = null;
-            });
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    log("使用者選擇: " + choiceResult.outcome);
+                    deferredPrompt = null;
+                });
+            } else {
+                log("⚠️ 無法安裝：瀏覽器未觸發事件");
+            }
         });
 
-        // --- 裝置偵測 ---
-        const userAgent = navigator.userAgent || navigator.vendor || window.opera;
-        const isAndroid = /android/i.test(userAgent);
-        const isIOS = /iPad|iPhone|iPod/.test(userAgent) && !window.MSStream;
-
-        // --- 2. 導航回家 (修正版: 使用 Google Maps 通用連結) ---
+        // --- 2. 導航功能 ---
         function goHome() {
-            // Android/iOS 通用連結：這會強制喚起 Google Maps 並進入導航模式
-            // destination=Home 會自動讀取您帳號設定的「住家」
-            const mapsUrl = "https://www.google.com/maps/dir/?api=1&destination=Home&travelmode=driving";
-            
-            window.location.href = mapsUrl;
+            log("啟動 Google Maps...");
+            // 使用 Universal Link，这是目前最稳的
+            window.location.href = "https://www.google.com/maps/dir/?api=1&destination=Home&travelmode=driving";
         }
 
-        // --- 3. 開啟神盾 (修正版: 使用 MAIN Action Intent) ---
-        function openOmnie() {
-            if (isIOS) {
-                // iOS
-                window.location.href = "https://apps.apple.com/tw/app/id1067644747";
-            } else if (isAndroid) {
-                // Android 強力開啟模式
-                // 使用 action.MAIN 和 category.LAUNCHER 模擬點擊桌面圖示
-                const packageName = "com.omnie.app";
-                const fallbackUrl = `https://play.google.com/store/apps/details?id=${packageName}`;
-                
-                // 這種寫法比 scheme=package 更強勢
-                const intent = `intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package=${packageName};S.browser_fallback_url=${encodeURIComponent(fallbackUrl)};end`;
-                
-                window.location.href = intent;
-            } else {
-                alert("請在手機上使用");
+        // --- 3. 神盾多重測試 ---
+        function testOmnie(mode) {
+            const pkg = "com.omnie.app";
+            const fallback = `https://play.google.com/store/apps/details?id=${pkg}`;
+            let intent = "";
+
+            if (mode === 1) {
+                log("測試 A: 標準 Intent");
+                // 最乾淨的寫法，依賴 Android 系統解析
+                intent = `intent://#Intent;scheme=package;package=${pkg};end`;
+            } 
+            else if (mode === 2) {
+                log("測試 B: 強制 Launcher");
+                // 模擬點擊桌面圖示
+                intent = `intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package=${pkg};S.browser_fallback_url=${encodeURIComponent(fallback)};end`;
+            } 
+            else if (mode === 3) {
+                log("測試 C: 指定 MainActivity");
+                // 直接指定 Activity 路徑 (這是猜測的路徑，如果神盾有改名可能會失敗)
+                // 通常是 com.omnie.app.MainActivity 或 .ui.MainActivity
+                intent = `intent://#Intent;component=com.omnie.app/com.omnie.app.MainActivity;S.browser_fallback_url=${encodeURIComponent(fallback)};end`;
             }
+
+            // 嘗試執行
+            setTimeout(() => {
+                window.location.href = intent;
+            }, 100);
         }
+
+        // --- 啟動檢查 ---
+        window.addEventListener('load', () => {
+            if (window.matchMedia('(display-mode: standalone)').matches) {
+                log("模式: 已安裝 (Standalone)");
+            } else {
+                log("模式: 瀏覽器分頁 (Browser)");
+                // 檢查 manifest 是否能讀取
+                fetch('./manifest.json')
+                    .then(res => {
+                        if(res.ok) log("✅ manifest.json 讀取正常");
+                        else log("❌ manifest.json 讀取失敗 (404?)");
+                    })
+                    .catch(err => log("❌ manifest.json 請求錯誤"));
+            }
+        });
     </script>
 </body>
 </html>
