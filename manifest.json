@@ -1,21 +1,214 @@
-{
-    "name": "Drive Launcher",
-    "short_name": "Drive",
-    "start_url": "./index.html",
-    "display": "standalone",
-    "background_color": "#000000",
-    "theme_color": "#000000",
-    "orientation": "portrait",
-    "icons": [
-        {
-            "src": "https://upload.wikimedia.org/wikipedia/commons/4/4b/Google_Maps_icon_%282020%29_powered_by_Google.svg",
-            "sizes": "192x192",
-            "type": "image/svg+xml"
-        },
-        {
-            "src": "https://upload.wikimedia.org/wikipedia/commons/4/4b/Google_Maps_icon_%282020%29_powered_by_Google.svg",
-            "sizes": "512x512",
-            "type": "image/svg+xml"
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#000000">
+    <link rel="manifest" href="manifest.json">
+    
+    <title>Drive Launcher</title>
+    <style>
+        :root {
+            --bg-color: #000000;
+            --card-bg: #1c1c1e;
+            --text-color: #ffffff;
+            --home-bar: #34C759;
+            --omnie-bar: #007AFF;
+            --install-bar: #FF9F0A;
         }
-    ]
-}
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            width: 100%;
+            max-width: 350px;
+        }
+
+        .big-btn {
+            background-color: var(--card-bg);
+            border-radius: 20px;
+            height: 110px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            text-decoration: none;
+            color: white;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid #333;
+            -webkit-tap-highlight-color: transparent;
+            transition: transform 0.1s, background-color 0.2s;
+        }
+
+        .big-btn:active {
+            transform: scale(0.96);
+            background-color: #2c2c2e;
+        }
+
+        .big-btn::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 8px;
+        }
+
+        .btn-home::before { background-color: var(--home-bar); }
+        .btn-omnie::before { background-color: var(--omnie-bar); }
+        .btn-install::before { background-color: var(--install-bar); }
+
+        /* 安裝按鈕預設隱藏 */
+        #installContainer {
+            display: none; 
+        }
+
+        .text-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+
+        .title {
+            font-size: 1.6rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+
+        .subtitle {
+            font-size: 0.8rem;
+            color: #888;
+            font-weight: 400;
+        }
+        
+        /* 除錯訊息 (若不想看到可以刪除這段) */
+        #debug-status {
+            position: fixed;
+            bottom: 10px;
+            color: #444;
+            font-size: 10px;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="big-btn btn-home" onclick="goHome()">
+            <div class="text-group">
+                <span class="title">機車回家</span>
+                <span class="subtitle">Scooter Navigation</span>
+            </div>
+        </div>
+
+        <div class="big-btn btn-omnie" onclick="openOmnie()">
+            <div class="text-group">
+                <span class="title">神盾測速</span>
+                <span class="subtitle">Omnie CUE</span>
+            </div>
+        </div>
+
+        <div id="installContainer" class="big-btn btn-install" onclick="installApp()">
+            <div class="text-group">
+                <span class="title">安裝到桌面</span>
+                <span class="subtitle">Install PWA</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="debug-status">Initializing...</div>
+
+    <script>
+        const statusDiv = document.getElementById('debug-status');
+
+        // --- 1. 註冊 Service Worker (這裡修正了檔名!) ---
+        if ('serviceWorker' in navigator) {
+            // 注意：這裡改成了 './service-worker.js' 對應您的檔案
+            navigator.serviceWorker.register('./service-worker.js')
+                .then(reg => {
+                    console.log('SW Registered');
+                    statusDiv.innerText = "SW OK. Waiting for install prompt...";
+                })
+                .catch(err => {
+                    console.error('SW Fail', err);
+                    statusDiv.innerText = "SW Error: " + err;
+                });
+        }
+
+        // --- 2. 安裝按鈕邏輯 ---
+        let deferredPrompt;
+        const installBtn = document.getElementById('installContainer');
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            installBtn.style.display = 'flex'; // 顯示按鈕
+            statusDiv.innerText = "Install Ready!";
+        });
+
+        async function installApp() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                deferredPrompt = null;
+                installBtn.style.display = 'none';
+            }
+        }
+
+        // --- 3. 裝置偵測與功能 ---
+        const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+        const isAndroid = /android/i.test(userAgent);
+        const isIOS = /iPad|iPhone|iPod/.test(userAgent) && !window.MSStream;
+
+        function goHome() {
+            if (isAndroid) {
+                // mode=l 代表 Two-wheeler (機車/兩輪)
+                // mode=d 是開車
+                window.location.href = "google.navigation:q=Home&mode=l";
+            } else if (isIOS) {
+                window.location.href = "comgooglemaps://?daddr=Home&directionsmode=driving";
+                setTimeout(() => { window.location.href = "https://www.google.com/maps/dir/?api=1&destination=Home&travelmode=driving"; }, 2000);
+            } else {
+                window.location.href = "https://www.google.com/maps/dir/?api=1&destination=Home&travelmode=two_wheeler";
+            }
+        }
+
+        function openOmnie() {
+            if (isAndroid) {
+                // 強制呼叫策略
+                const pkg = "tw.com.ainvest.outpack";
+                const cls = "tw.com.ainvest.outpack.ui.MainActivity";
+                const fallback = `https://play.google.com/store/apps/details?id=${pkg}`;
+                
+                // 加上 component 參數，精準打擊
+                const intent = `intent:#Intent;component=${pkg}/${cls};S.browser_fallback_url=${encodeURIComponent(fallback)};end`;
+                window.location.href = intent;
+            } else if (isIOS) {
+                window.location.href = "https://apps.apple.com/tw/app/id1067644747";
+            }
+        }
+    </script>
+</body>
+</html>
