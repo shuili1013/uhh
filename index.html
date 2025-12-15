@@ -27,10 +27,10 @@
             padding: 20px;
             display: flex;
             flex-direction: column;
-            justify-content: center; /* 垂直置中 */
-            align-items: center;     /* 水平置中 */
-            height: 100vh;           /* 佔滿全螢幕 */
-            overflow: hidden;        /* 禁止捲動 */
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
             box-sizing: border-box;
         }
 
@@ -64,7 +64,6 @@
             background-color: #2c2c2e;
         }
 
-        /* 左側裝飾色條 */
         .big-btn::before {
             content: '';
             position: absolute;
@@ -96,6 +95,19 @@
             color: #888;
             font-weight: 400;
         }
+
+        /* 安裝按鈕樣式 (預設隱藏) */
+        #installBtn {
+            display: none; 
+            margin-top: 30px;
+            padding: 10px 20px;
+            background-color: #333;
+            color: #fff;
+            border: 1px solid #555;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -116,49 +128,68 @@
         </div>
     </div>
 
+    <button id="installBtn">📲 安裝到主畫面</button>
+
     <script>
-        // 1. Service Worker 註冊 (觸發 PWA 安裝提示的關鍵)
+        // --- 1. PWA 安裝邏輯 (修正版) ---
+        let deferredPrompt;
+        const installBtn = document.getElementById('installBtn');
+
+        // 註冊 Service Worker
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./service-worker.js')
-                    .then(reg => console.log('SW 註冊成功:', reg))
-                    .catch(err => console.log('SW 註冊失敗:', err));
+                    .then(reg => console.log('SW ok', reg))
+                    .catch(err => console.log('SW fail', err));
             });
         }
 
-        // 2. 裝置偵測
+        // 監聽安裝事件 (Chrome Android 專用)
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            installBtn.style.display = 'block'; // 顯示按鈕
+        });
+
+        installBtn.addEventListener('click', () => {
+            installBtn.style.display = 'none';
+            deferredPrompt.prompt(); // 觸發安裝視窗
+            deferredPrompt.userChoice.then((choiceResult) => {
+                deferredPrompt = null;
+            });
+        });
+
+        // --- 裝置偵測 ---
         const userAgent = navigator.userAgent || navigator.vendor || window.opera;
         const isAndroid = /android/i.test(userAgent);
         const isIOS = /iPad|iPhone|iPod/.test(userAgent) && !window.MSStream;
 
-        // 3. 導航回家功能
+        // --- 2. 導航回家 (修正版: 使用 Google Maps 通用連結) ---
         function goHome() {
-            if (isIOS) {
-                // iOS Scheme: 開啟 Google Maps 導航回家
-                window.location.href = "comgooglemaps://?daddr=Home&directionsmode=driving";
-                // 失敗備案
-                setTimeout(() => { window.location.href = "https://www.google.com/maps/dir/?api=1&destination=Home&travelmode=driving"; }, 2000);
-            } else if (isAndroid) {
-                // Android Intent
-                window.location.href = "intent://#Intent;scheme=google.navigation;package=com.google.android.apps.maps;S.q=Home;end";
-            } else {
-                window.location.href = "https://www.google.com/maps/dir/?api=1&destination=Home&travelmode=driving";
-            }
+            // Android/iOS 通用連結：這會強制喚起 Google Maps 並進入導航模式
+            // destination=Home 會自動讀取您帳號設定的「住家」
+            const mapsUrl = "https://www.google.com/maps/dir/?api=1&destination=Home&travelmode=driving";
+            
+            window.location.href = mapsUrl;
         }
 
-        // 4. 開啟神盾功能
+        // --- 3. 開啟神盾 (修正版: 使用 MAIN Action Intent) ---
         function openOmnie() {
             if (isIOS) {
-                // iOS: 導向 App Store (已安裝會顯示"打開"，未安裝顯示"取得")
+                // iOS
                 window.location.href = "https://apps.apple.com/tw/app/id1067644747";
             } else if (isAndroid) {
-                // Android: 使用 Intent 直接開啟 App
+                // Android 強力開啟模式
+                // 使用 action.MAIN 和 category.LAUNCHER 模擬點擊桌面圖示
                 const packageName = "com.omnie.app";
                 const fallbackUrl = `https://play.google.com/store/apps/details?id=${packageName}`;
-                const intent = `intent://#Intent;scheme=package;package=${packageName};S.browser_fallback_url=${encodeURIComponent(fallbackUrl)};end`;
+                
+                // 這種寫法比 scheme=package 更強勢
+                const intent = `intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package=${packageName};S.browser_fallback_url=${encodeURIComponent(fallbackUrl)};end`;
+                
                 window.location.href = intent;
             } else {
-                alert("請在手機上使用此功能");
+                alert("請在手機上使用");
             }
         }
     </script>
